@@ -36,7 +36,7 @@ pipeline {
           python3 -m venv .venv
           . .venv/bin/activate
           pip install -q -r requirements.txt pytest httpx
-          pytest -q
+          PYTHONPATH="$WORKSPACE" python -m pytest -q
         '''
       }
     }
