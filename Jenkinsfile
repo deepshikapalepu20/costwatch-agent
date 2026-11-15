@@ -58,11 +58,16 @@ pipeline {
       }
     }
  
+    
     stage('IaC Scan (Trivy)') {
-      steps {
-        sh 'trivy config --format json -o trivy-iac-report.json terraform cloudformation'
-      }
+        steps {
+            sh '''
+                trivy config --format json -o trivy-terraform-report.json terraform
+                trivy config --format json -o trivy-cloudformation-report.json cloudformation
+            '''
+        }
     }
+
  
     stage('Terraform Validate') {
       steps {
