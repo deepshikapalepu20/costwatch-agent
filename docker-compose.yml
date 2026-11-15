@@ -1,0 +1,56 @@
+
+services:
+  app:
+    build: .
+    image: ${DOCKER_IMAGE:-costwatch-agent:local}
+    env_file:
+      - .env
+    environment:
+      AWS_PROFILE: ${AWS_PROFILE:-costwatch-app-user}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_SDK_LOAD_CONFIG: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - reports:/app/reports
+      - "${USERPROFILE}/.aws:/home/appuser/.aws:ro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./prometheus:/etc/prometheus:ro"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - "./alertmanager:/etc/alertmanager:ro"
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - "./grafana/provisioning:/etc/grafana/provisioning:ro"
+    restart: unless-stopped
+
+volumes:
+  reports:
+  grafana-data:

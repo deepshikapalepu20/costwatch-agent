@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CostWatch environment (CloudFormation version)
+ 
+Parameters:
+  ProjectName:
+    Type: String
+    Default: costwatch
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+  AllowedCidr:
+    Type: String
+  RepoUrl:
+    Type: String
+  DockerImage:
+    Type: String
+  CostSource:
+    Type: String
+    Default: mock
+    AllowedValues: [mock, aws]
+  GroqParam:
+    Type: String
+    Default: /costwatch/groq_api_key
+  GrafanaParam:
+    Type: String
+    Default: /costwatch/grafana_password
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+ 
+Resources:
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CostWatch access
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 22,   ToPort: 22,   CidrIp: !Ref AllowedCidr}
+        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, CidrIp: !Ref AllowedCidr}
+        - {IpProtocol: tcp, FromPort: 9090, ToPort: 9090, CidrIp: !Ref AllowedCidr}
+        - {IpProtocol: tcp, FromPort: 3000, ToPort: 3000, CidrIp: !Ref AllowedCidr}
+ 
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: costwatch-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ce:GetCostAndUsage
+                  - ce:GetCostForecast
+                  - ce:GetAnomalies
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:ListMetrics
+                  - ec2:DescribeInstances
+                  - budgets:ViewBudget
+                Resource: "*"
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${GroqParam}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${GrafanaParam}
+ 
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+ 
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 2
+ 
+  AppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt AppSecurityGroup.GroupId]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      Tags:
+        - {Key: Name, Value: !Sub "${ProjectName}-cfn"}
+        - {Key: Project, Value: !Ref ProjectName}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          fallocate -l 2G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          dnf install -y docker git
+          systemctl enable --now docker
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          git clone ${RepoUrl} /opt/costwatch
+          cd /opt/costwatch
+          GROQ=$(aws ssm get-parameter --name ${GroqParam} --with-decryption --query Parameter.Value --output text --region ${AWS::Region})
+          GRAF=$(aws ssm get-parameter --name ${GrafanaParam} --with-decryption --query Parameter.Value --output text --region ${AWS::Region})
+          printf "AWS_REGION=${AWS::Region}\nCOST_SOURCE=${CostSource}\nGROQ_API_KEY=$GROQ\nGRAFANA_ADMIN_PASSWORD=$GRAF\nDOCKER_IMAGE=${DockerImage}\n" > .env
+          docker compose up -d
+ 
+Outputs:
+  PublicIp:
+    Value: !GetAtt AppInstance.PublicIp
+  GrafanaUrl:
+    Value: !Sub "http://${AppInstance.PublicIp}:3000"

@@ -1,0 +1,39 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# AWS credentials
+.aws/
+**/.aws/
+
+# Python virtual environments
+venv/
+.venv/
+.venv-clean/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# Test and coverage files
+.coverage
+htmlcov/
+
+# Reports and generated files
+reports/
+*-report.json
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
