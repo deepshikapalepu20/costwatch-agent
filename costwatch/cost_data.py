@@ -5,9 +5,16 @@ from . import config
 
 
 def get_aws_session():
-    """Create a Boto3 session using the CostWatch AWS profile."""
+    """Create a Boto3 session using an optional profile
+    or the EC2 instance IAM role."""
+
+    if config.AWS_PROFILE:
+        return boto3.Session(
+            profile_name=config.AWS_PROFILE,
+            region_name=config.AWS_REGION
+        )
+
     return boto3.Session(
-        profile_name=config.AWS_PROFILE,
         region_name=config.AWS_REGION
     )
 

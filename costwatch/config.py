@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AWS_PROFILE   = os.getenv("AWS_PROFILE", "costwatch-app-user")
+AWS_PROFILE   = os.getenv("AWS_PROFILE", "")
 AWS_REGION    = os.getenv("AWS_REGION", "us-east-1")
 GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
