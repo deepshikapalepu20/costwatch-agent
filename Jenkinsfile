@@ -14,8 +14,21 @@ pipeline {
  
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+    steps {
+        checkout scm
+
+        sh '''
+            echo "===== CURRENT BRANCH ====="
+            git branch -a
+
+            echo "===== RECENT COMMITS ====="
+            git log --all --oneline --decorate -20
+
+            echo "===== CONFIG FILE HISTORY ====="
+            git log --all --oneline -- costwatch/config.py
+        '''
     }
+}
  
     stage('Secrets Scan (Gitleaks)') {
       steps {
