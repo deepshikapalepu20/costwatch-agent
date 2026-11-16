@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     environment:
-      AWS_PROFILE: ${AWS_PROFILE:-costwatch-app-user}
+      #AWS_PROFILE: ${AWS_PROFILE:-costwatch-app-user}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_SDK_LOAD_CONFIG: "1"
     ports:
