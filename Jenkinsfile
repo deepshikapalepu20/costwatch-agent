@@ -107,12 +107,23 @@ pipeline {
       }
     }
  
+
     stage('Smoke Test') {
-      when { expression { params.EC2_HOST?.trim() } }
-      steps {
-        sh 'sleep 20 && curl -f http://$EC2_HOST:8000/health'
-      }
+        when { expression { params.EC2_HOST?.trim() } }
+        steps {
+            sshagent(credentials: ['ec2-ssh-key']) {
+                sh '''
+                    echo "Waiting for application to start..."
+                    sleep 20
+
+                    echo "Checking CostWatch health on EC2..."
+                    ssh -o StrictHostKeyChecking=accept-new ec2-user@$EC2_HOST \
+                    "curl -fsS --max-time 10 http://localhost:8000/health"
+                '''
+            }
+        }
     }
+
   }
  
   post {
