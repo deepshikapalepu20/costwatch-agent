@@ -15,20 +15,19 @@ pipeline {
   stages {
     stage('Checkout') {
     steps {
+        deleteDir()
         checkout scm
 
         sh '''
-            echo "===== CURRENT BRANCH ====="
+            echo "===== VERIFY BRANCHES ====="
             git branch -a
 
-            echo "===== RECENT COMMITS ====="
-            git log --all --oneline --decorate -20
-
-            echo "===== CONFIG FILE HISTORY ====="
-            git log --all --oneline -- costwatch/config.py
+            echo "===== VERIFY HISTORY ====="
+            git log --all --oneline -10
         '''
+        }
     }
-}
+
  
     stage('Secrets Scan (Gitleaks)') {
       steps {
